@@ -21,6 +21,7 @@ require 'chef/config'
 require 'chef/mixin/params_validate'
 require 'chef/mixin/generate_url'
 require 'chef/mixin/checksum'
+require 'chef/mixin/retry'
 require 'chef/log'
 require 'chef/rest'
 require 'chef/platform'
@@ -36,6 +37,7 @@ class Chef
     
     include Chef::Mixin::GenerateURL
     include Chef::Mixin::Checksum
+    include Chef::Mixin::Retry
     
     attr_accessor :node, :registration, :json_attribs, :validation_token, :node_name, :ohai
     
@@ -234,7 +236,7 @@ class Chef
 
             changed = true
             begin
-              raw_file = @rest.get_rest(rf_url, true)
+              raw_file = get_with_retry(rf_url, true)
             rescue Net::HTTPRetriableError => e
               if e.response.kind_of?(Net::HTTPNotModified)
                 changed = false
@@ -270,7 +272,7 @@ class Chef
     # true:: Always returns true
     def sync_cookbooks
       Chef::Log.debug("Synchronizing cookbooks")
-      cookbook_hash = @rest.get_rest("nodes/#{@node_name}/cookbooks")
+      cookbook_hash = get_with_retry("nodes/#{@node_name}/cookbooks")
       Chef::Log.debug("Cookbooks to load: #{cookbook_hash.inspect}")
       Chef::FileCache.list.each do |cache_file|
         if cache_file =~ /^cookbooks\/(.+?)\//
@@ -317,6 +319,17 @@ class Chef
       cr = Chef::Runner.new(@node, compile.collection, compile.definitions, compile.cookbook_loader)
       cr.converge
       true
+    end
+
+    protected
+
+    def get_with_retry(path, raw=false, headers={}, limit=10)
+      @rest.get_rest(path, raw, headers, limit) do |req|
+        backoff_generator = ExponentialBackoffDelayGenerator.create(Chef::Config[:http_retry_count], Chef::Config[:http_retry_exponential_backoff_scale])
+        retry_with_delay(backoff_generator) do
+          req.call
+        end
+      end
     end
 
   end

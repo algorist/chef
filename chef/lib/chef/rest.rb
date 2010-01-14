@@ -3,6 +3,7 @@
 # Author:: Thom May (<thom@clearairturbulence.org>)
 # Author:: Nuo Yan (<nuo@opscode.com>)
 # Author:: Christopher Brown (<cb@opscode.com>)
+# Author:: Christopher Walters (<cw@opscode.com>)
 # Copyright:: Copyright (c) 2009 Opscode, Inc.
 # License:: Apache License, Version 2.0
 #
@@ -27,6 +28,7 @@ require 'tempfile'
 require 'singleton'
 require 'mixlib/authentication/signedheaderauth'
 require 'chef/api_client'
+require 'ostruct'
 
 include Mixlib::Authentication::SignedHeaderAuth
 
@@ -36,7 +38,7 @@ class Chef
     class CookieJar < Hash
       include Singleton
     end
-    
+
     attr_accessor :url, :cookies, :client_name, :signing_key, :signing_key_filename, :sign_on_redirect, :sign_request
     
     def initialize(url, client_name=Chef::Config[:node_name], signing_key_filename=Chef::Config[:client_key])
@@ -88,30 +90,54 @@ class Chef
 
       true
     end
-
+    
     # Send an HTTP GET request to the path
     #
     # === Parameters
     # path:: The path to GET
     # raw:: Whether you want the raw body returned, or JSON inflated.  Defaults 
     #   to JSON inflated.
-    def get_rest(path, raw=false, headers={})
-      run_request(:GET, create_url(path), headers, false, 10, raw)    
+    def get_rest(path, raw=false, headers={}, limit=10, &block)
+      url = create_url(path)
+      req_data = construct_request(:GET, url, headers, false, raw)
+      if block_given?
+        yield Proc.new{ run_request(req_data.http, req_data.request, url, limit, raw) }
+      else
+        run_request(req_data.http, req_data.request, url, limit, raw)
+      end
     end                               
-                          
+
     # Send an HTTP DELETE request to the path
-    def delete_rest(path, headers={}) 
-      run_request(:DELETE, create_url(path), headers)       
-    end                               
+    def delete_rest(path, headers={}, &block)
+      url = create_url(path)
+      req_data = construct_request(:DELETE, url, headers)
+      if block_given?
+        yield Proc.new{ run_request(req_data.http, req_data.request, url) }
+      else
+        run_request(req_data.http, req_data.request, url)
+      end
+    end
     
-    # Send an HTTP POST request to the path                                  
-    def post_rest(path, json, headers={})
-      run_request(:POST, create_url(path), headers, json)    
-    end                               
+    # Send an HTTP POST request to the path
+    def post_rest(path, json, headers={}, &block)
+      url = create_url(path)
+      req_data = construct_request(:POST, url, headers, json)
+      if block_given?
+        yield Proc.new{ run_request(req_data.http, req_data.request, url) }
+      else
+        run_request(req_data.http, req_data.request, url)
+      end
+    end
                                       
     # Send an HTTP PUT request to the path
-    def put_rest(path, json, headers={})
-      run_request(:PUT, create_url(path), headers, json)
+    def put_rest(path, json, headers={}, &block)
+      url = create_url(path)
+      req_data = construct_request(:PUT, url, headers, json)
+      if block_given?
+        yield Proc.new{ run_request(req_data.http, req_data.request, url) }
+      else
+        run_request(req_data.http, req_data.request, url)
+      end
     end
     
     def create_url(path)
@@ -133,23 +159,17 @@ class Chef
       signed =  sign_obj.sign(private_key).merge({:host => host})
       signed.inject({}){|memo, kv| memo["#{kv[0].to_s.upcase}"] = kv[1];memo}
     end
-    
-    # Actually run an HTTP request.  First argument is the HTTP method,
+
+    def construct_and_run_request(method, url, headers={}, data=false, limit=10, raw=false)
+      req_data = construct_request(method, url, headers, data, raw)
+      run_request(req_data.http, req_data.request, url, limit, raw)
+    end
+
+    # Construct an HTTP request.  First argument is the HTTP method,
     # which should be one of :GET, :PUT, :POST or :DELETE.  Next is the
     # URL, then an object to include in the body (which will be converted with
     # .to_json) and finally, the limit of HTTP Redirects to follow (10).
-    #
-    # Typically, you won't use this method -- instead, you'll use one of
-    # the helper methods (get_rest, post_rest, etc.)
-    #
-    # Will return the body of the response on success.
-    def run_request(method, url, headers={}, data=false, limit=10, raw=false)
-      
-      http_retry_delay = Chef::Config[:http_retry_delay] 
-      http_retry_count = Chef::Config[:http_retry_count]
-
-      raise ArgumentError, 'HTTP redirect too deep' if limit == 0 
-
+    def construct_request(method, url, headers={}, data=false, raw=false)
       http = Net::HTTP.new(url.host, url.port)
       if url.scheme == "https"
         http.use_ssl = true 
@@ -219,54 +239,52 @@ class Chef
         raise ArgumentError, "You must provide :GET, :PUT, :POST or :DELETE as the method"
       end
 
-      Chef::Log.debug("Sending HTTP Request via #{req.method} to #{url.host}:#{url.port}#{req.path}")
+      Chef::Log.debug("Constructed HTTP Request for #{req.method} to #{url.host}:#{url.port}#{req.path}")
       
       # Optionally handle HTTP Basic Authentication
       req.basic_auth(url.user, url.password) if url.user
 
+      OpenStruct.new(:http => http, :request => req)
+    end
+    
+    # Actually run an HTTP request.
+    #
+    # Typically, you won't use this method -- instead, you'll use one of
+    # the helper methods (get_rest, post_rest, etc.)
+    #
+    # Will return the body of the response on success.
+    def run_request(http, req, url, limit=10, raw=false)
+      
+      raise ArgumentError, 'HTTP redirect too deep' if limit == 0 
+      
       res = nil
       tf = nil
-      http_retries = 1
-
-      begin
-        res = http.request(req) do |response|
-          if raw
-            tf = Tempfile.new("chef-rest") 
-            # Stolen from http://www.ruby-forum.com/topic/166423
-            # Kudos to _why!
-            size, total = 0, response.header['Content-Length'].to_i
-            response.read_body do |chunk|
-              tf.write(chunk) 
-              size += chunk.size
-              if size == 0
-                Chef::Log.debug("#{req.path} done (0 length file)")
-              elsif total == 0
-                Chef::Log.debug("#{req.path} (zero content length)")
-              else
-                Chef::Log.debug("#{req.path}" + " %d%% done (%d of %d)" % [(size * 100) / total, size, total])
-              end
+      
+      res = http.request(req) do |response|
+        if raw
+          tf = Tempfile.new("chef-rest") 
+          # Stolen from http://www.ruby-forum.com/topic/166423
+          # Kudos to _why!
+          size, total = 0, response.header['Content-Length'].to_i
+          response.read_body do |chunk|
+            tf.write(chunk) 
+            size += chunk.size
+            if size == 0
+              Chef::Log.debug("#{req.path} done (0 length file)")
+            elsif total == 0
+              Chef::Log.debug("#{req.path} (zero content length)")
+            else
+              Chef::Log.debug("#{req.path}" + " %d%% done (%d of %d)" % [(size * 100) / total, size, total])
             end
-            tf.close 
-            tf
-          else
-            response.read_body
           end
-          response
+          tf.close 
+          tf
+        else
+          response.read_body
         end
-
-      rescue Errno::ECONNREFUSED => e
-        Chef::Log.error("Connection refused connecting to #{url.host}:#{url.port} for #{req.path} #{http_retries}/#{http_retry_count}")
-        sleep(http_retry_delay)
-        retry if (http_retries += 1) < http_retry_count
-        raise Errno::ECONNREFUSED, "Connection refused connecting to #{url.host}:#{url.port} for #{req.path}, giving up"
-      rescue Timeout::Error
-        Chef::Log.error("Timeout connecting to #{url.host}:#{url.port} for #{req.path}, retry #{http_retries}/#{http_retry_count}")
-        sleep(http_retry_delay)
-        retry if (http_retries += 1) < http_retry_count
-        raise Timeout::Error, "Timeout connecting to #{url.host}:#{url.port} for #{req.path}, giving up"
+        response
       end
       
-    
       if res.kind_of?(Net::HTTPSuccess)
         if res['set-cookie']
           @cookies["#{url.host}:#{url.port}"] = res['set-cookie']
@@ -286,7 +304,9 @@ class Chef
           @cookies["#{url.host}:#{url.port}"] = res['set-cookie']
         end
         @sign_request = false if @sign_on_redirect == false
-        run_request(:GET, create_url(res['location']), {}, false, limit - 1, raw)
+        url = create_url(res['location'])
+        req_data = construct_request(:GET, url, {})
+        run_request(req_data.http, req_data.request, url, limit - 1, raw)
       else
         if res['content-type'] =~ /json/
           exception = JSON.parse(res.body)

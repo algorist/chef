@@ -21,7 +21,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), "..", "spec_helper"))
 describe Chef::CouchDB do
   before(:each) do
     @mock_rest = mock("Chef::REST", :null_object => true)
-    @mock_rest.stub!(:run_request).and_return({"couchdb" => "Welcome", "version" =>"0.9.0"})
+    @mock_rest.stub!(:construct_and_run_request).and_return({"couchdb" => "Welcome", "version" =>"0.9.0"})
     @mock_rest.stub!(:url).and_return("http://localhost:5984")
     Chef::REST.stub!(:new).and_return(@mock_rest)
     @couchdb = Chef::CouchDB.new
@@ -291,8 +291,8 @@ describe Chef::CouchDB, "view_uri" do
   describe "when the couchdb version is unknown" do
     it "should set the couchdb version appropriately" do
       ov = Chef::Config[:couchdb_version]
-      Chef::Config[:couchdb_version] = nil      
-      @mock_rest.should_receive(:run_request).with(
+      Chef::Config[:couchdb_version] = nil
+      @mock_rest.should_receive(:construct_and_run_request).with(
         :GET, 
         URI.parse("http://monkeypants/"), 
         {},

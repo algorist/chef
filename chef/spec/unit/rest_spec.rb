@@ -83,62 +83,6 @@ EOH
 
   end
 
-  describe "get_rest" do
-    it "should create a url from the path and base url" do
-      URI.should_receive(:parse).with("url/monkey")
-      @rest.stub!(:run_request)
-      @rest.get_rest("monkey")
-    end
-    
-    it "should call run_request :GET with the composed url object" do
-      URI.stub!(:parse).and_return(true)
-      @rest.should_receive(:run_request).with(:GET, true, {}, false, 10, false).and_return(true)
-      @rest.get_rest("monkey")
-    end
-  end
-
-  describe "delete_rest" do
-    it "should create a url from the path and base url" do
-      URI.should_receive(:parse).with("url/monkey")
-      @rest.stub!(:run_request)
-      @rest.delete_rest("monkey")
-    end
-    
-    it "should call run_request :DELETE with the composed url object" do
-      URI.stub!(:parse).and_return(true)
-      @rest.should_receive(:run_request).with(:DELETE, true, {}).and_return(true)
-      @rest.delete_rest("monkey")
-    end
-  end
-
-  describe "post_rest" do
-    it "should create a url from the path and base url" do
-      URI.should_receive(:parse).with("url/monkey")
-      @rest.stub!(:run_request)
-      @rest.post_rest("monkey", "data")
-    end
-    
-    it "should call run_request :POST with the composed url object and data" do
-      URI.stub!(:parse).and_return(true)
-      @rest.should_receive(:run_request).with(:POST, true, {}, "data").and_return(true)
-      @rest.post_rest("monkey", "data")
-    end
-  end
-
-  describe "put_rest" do
-    it "should create a url from the path and base url" do
-      URI.should_receive(:parse).with("url/monkey")
-      @rest.stub!(:run_request)
-      @rest.put_rest("monkey", "data")
-    end
-    
-    it "should call run_request :PUT with the composed url object and data" do
-      URI.stub!(:parse).and_return(true)
-      @rest.should_receive(:run_request).with(:PUT, true, {}, "data").and_return(true)
-      @rest.put_rest("monkey", "data")
-    end
-  end
-
   describe Chef::REST, "run_request method" do
     before(:each) do
       @url_mock = mock("URI", :null_object => true)
@@ -170,11 +114,11 @@ EOH
     
     def do_run_request(method=:GET, data=false, limit=10, raw=false)
       Net::HTTP.stub!(:new).and_return(@http_mock)
-      @rest.run_request(method, @url_mock, {}, data, limit, raw)
+      @rest.construct_and_run_request(method, @url_mock, {}, data, limit, raw)
     end
     
     it "should raise an exception if the redirect limit is 0" do
-      lambda { @rest.run_request(:GET, "/", {}, false, 0)}.should raise_error(ArgumentError)
+      lambda { @rest.construct_and_run_request(:GET, URI.parse("/"), {}, false, 0)}.should raise_error(ArgumentError)
     end
     
     it "should use SSL if the url starts with https" do

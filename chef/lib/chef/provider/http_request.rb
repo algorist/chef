@@ -31,7 +31,7 @@ class Chef
       # Send a GET request to @new_resource.url, with ?message=@new_resource.message
       def action_get  
         message = check_message(@new_resource.message)
-        body = @rest.run_request(
+        body = @rest.construct_and_run_request(
           :GET, 
           @rest.create_url("#{@new_resource.url}?message=#{message}"),
           {},
@@ -47,7 +47,7 @@ class Chef
       # Send a PUT request to @new_resource.url, with the message as the payload
       def action_put 
         message = check_message(@new_resource.message)
-        body = @rest.run_request(
+        body = @rest.construct_and_run_request(
           :PUT,
           @rest.create_url("#{@new_resource.url}"),
           {},
@@ -63,7 +63,7 @@ class Chef
       # Send a POST request to @new_resource.url, with the message as the payload
       def action_post
         message = check_message(@new_resource.message)
-        body = @rest.run_request(
+        body = @rest.construct_and_run_request(
           :POST,
           @rest.create_url("#{@new_resource.url}"),
           {},
@@ -78,7 +78,7 @@ class Chef
       
       # Send a DELETE request to @new_resource.url
       def action_delete
-        body = @rest.run_request(
+        body = @rest.construct_and_run_request(
           :DELETE,
           @rest.create_url("#{@new_resource.url}"),
           {},

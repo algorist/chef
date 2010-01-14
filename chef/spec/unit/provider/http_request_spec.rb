@@ -65,7 +65,7 @@ describe Chef::Provider::HttpRequest, "action_get" do
     @rest = mock("Chef::REST", 
       :null_object => true, 
       :create_url => "http://www.opscode.com",
-      :run_request => "you made it!"
+      :construct_and_run_request => "you made it!"
     )
     @provider = Chef::Provider::HttpRequest.new(@node, @new_resource)
     @provider.rest = @rest
@@ -83,7 +83,7 @@ describe Chef::Provider::HttpRequest, "action_get" do
   end
   
   it "should run a GET request" do
-    @rest.should_receive(:run_request).with(:GET, @rest.create_url, {}, false, 10, false)
+    @rest.should_receive(:construct_and_run_request).with(:GET, @rest.create_url, {}, false, 10, false)
     @provider.action_get
   end
   
@@ -105,7 +105,7 @@ describe Chef::Provider::HttpRequest, "action_put" do
     @rest = mock("Chef::REST", 
       :null_object => true, 
       :create_url => "http://www.opscode.com",
-      :run_request => "you made it!"
+      :construct_and_run_request => "you made it!"
     )
     @provider = Chef::Provider::HttpRequest.new(@node, @new_resource)
     @provider.rest = @rest
@@ -117,13 +117,13 @@ describe Chef::Provider::HttpRequest, "action_put" do
   end
   
   it "should run a PUT request with the message as the payload" do
-    @rest.should_receive(:run_request).with(:PUT, @rest.create_url, {}, @new_resource.message, 10, false)
+    @rest.should_receive(:construct_and_run_request).with(:PUT, @rest.create_url, {}, @new_resource.message, 10, false)
     @provider.action_put
   end
   
   it "should inflate a message block at runtime" do
     @new_resource.stub!(:message).and_return(lambda { "return" })
-    @rest.should_receive(:run_request).with(:PUT, @rest.create_url, {}, "return", 10, false)    
+    @rest.should_receive(:construct_and_run_request).with(:PUT, @rest.create_url, {}, "return", 10, false)    
     @provider.action_put
   end
   
@@ -145,7 +145,7 @@ describe Chef::Provider::HttpRequest, "action_post" do
     @rest = mock("Chef::REST", 
       :null_object => true, 
       :create_url => "http://www.opscode.com",
-      :run_request => "you made it!"
+      :construct_and_run_request => "you made it!"
     )
     @provider = Chef::Provider::HttpRequest.new(@node, @new_resource)
     @provider.rest = @rest
@@ -157,13 +157,13 @@ describe Chef::Provider::HttpRequest, "action_post" do
   end
   
   it "should run a PUT request with the message as the payload" do
-    @rest.should_receive(:run_request).with(:POST, @rest.create_url, {}, @new_resource.message, 10, false)
+    @rest.should_receive(:construct_and_run_request).with(:POST, @rest.create_url, {}, @new_resource.message, 10, false)
     @provider.action_post
   end
   
   it "should inflate a message block at runtime" do
     @new_resource.stub!(:message).and_return(lambda { "return" })
-    @rest.should_receive(:run_request).with(:POST, @rest.create_url, {}, "return", 10, false)    
+    @rest.should_receive(:construct_and_run_request).with(:POST, @rest.create_url, {}, "return", 10, false)    
     @provider.action_post
   end
   
@@ -185,7 +185,7 @@ describe Chef::Provider::HttpRequest, "action_delete" do
     @rest = mock("Chef::REST", 
       :null_object => true, 
       :create_url => "http://www.opscode.com",
-      :run_request => "you made it!"
+      :construct_and_run_request => "you made it!"
     )
     @provider = Chef::Provider::HttpRequest.new(@node, @new_resource)
     @provider.rest = @rest
@@ -197,7 +197,7 @@ describe Chef::Provider::HttpRequest, "action_delete" do
   end
   
   it "should run a DELETE request" do
-    @rest.should_receive(:run_request).with(:DELETE, @rest.create_url, {}, false, 10, false)
+    @rest.should_receive(:construct_and_run_request).with(:DELETE, @rest.create_url, {}, false, 10, false)
     @provider.action_delete
   end
   

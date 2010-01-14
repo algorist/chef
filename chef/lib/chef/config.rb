@@ -111,7 +111,7 @@ class Chef
     file_backup_path nil
     group nil
     http_retry_count 5
-    http_retry_delay 5
+    http_retry_exponential_backoff_scale 2
     interval nil
     json_attribs nil
     log_level :info
