@@ -26,6 +26,11 @@ class Chef
         msg << "\n\tfrom " + tail.join("\n\tfrom ") unless tail.empty?
       end
 
+      # Debugging a call stack: adapted from http://sick.snusnu.info/2008/10/09/debugging-the-call-stack-using-puts-and-caller-in-ruby/
+      def call_stack(from = 2, to = nil)
+        [*from..(to||caller.length)].map{|idx| "[#{idx}]: #{caller[idx]}"}.join("\n")
+      end
+
     end
   end
 end
