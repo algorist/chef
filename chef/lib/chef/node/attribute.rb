@@ -103,6 +103,7 @@ class Chef
       end
 
       def attribute?(key)
+        return true if get_value(automatic, key)
         return true if get_value(override, key)
         return true if get_value(normal, key)
         return true if get_value(default, key)
