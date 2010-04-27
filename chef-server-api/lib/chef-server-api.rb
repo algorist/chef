@@ -67,6 +67,7 @@ if defined?(Merb::Plugins)
         Chef::DataBag.create_design_document
         Chef::ApiClient.create_design_document
         Chef::WebUIUser.create_design_document
+        Chef::Cookbook.create_design_document
         
         # Create the signing key and certificate 
         Chef::Certificate.generate_signing_ca
