@@ -126,6 +126,19 @@ if defined?(Merb::Plugins)
       scope.match('/nodes/:id/cookbooks', :method => 'get').to(:controller => "nodes", :action => "cookbooks")
 
       scope.resources :cookbooks
+
+      scope.match("/cookbooks/:id/:version", 
+                   :method => 'put', 
+                   :id => /[\w\.]+/, 
+                   :version => /\d+\.\d+\.\d+/
+                 ).to(:controller => "cookbooks", :action => "update")
+
+      scope.match("/cookbooks/:id/:version", 
+                   :method => 'get', 
+                   :id => /[\w\.]+/, 
+                   :version => /\d+\.\d+\.\d+/
+                 ).to(:controller => "cookbooks", :action => "show")
+
       scope.match("/cookbooks/:cookbook_id/_content", :method => 'get', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "get_tarball")
       scope.match("/cookbooks/:cookbook_id/_content", :method => 'put', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "update")
       scope.match("/cookbooks/:cookbook_id/:segment", :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "show_segment").name(:cookbook_segment)

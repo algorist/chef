@@ -39,22 +39,27 @@ class Chef
         :description => "Upload all cookbooks, rather than just a single cookbook"
 
       def run 
+        #
+        # Sandbox work comes here!
+        # 
         if config[:cookbook_path]
           Chef::Config[:cookbook_path] = config[:cookbook_path]
         else
           config[:cookbook_path] = Chef::Config[:cookbook_path]
         end
 
+        cl = Chef::CookbookLoader.new
         if config[:all] 
-          cl = Chef::CookbookLoader.new
           cl.each do |cookbook|
             Chef::Log.info("** #{cookbook.name.to_s} **")
-            upload_cookbook(cookbook.name.to_s)
+            cookbook.save
+            #upload_cookbook(cookbook.name.to_s)
           end
         else
-          @name_args.each do |cb|
-            Chef::Log.info("** #{cb} **")
-            upload_cookbook(cb)
+          @name_args.each do |cookbook_name|
+            cl[cookbook_name].generate_manifest
+            Chef::Log.info("Saving #{cookbook_name} version #{cl[cookbook_name].version}")
+            cl[cookbook_name].save
           end
         end
       end
