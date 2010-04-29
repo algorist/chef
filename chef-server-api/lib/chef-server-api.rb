@@ -136,8 +136,19 @@ if defined?(Merb::Plugins)
       scope.match("/cookbooks/:id/:version", 
                    :method => 'get', 
                    :id => /[\w\.]+/, 
-                   :version => /\d+\.\d+\.\d+/
+                   :version => /(\d+\.\d+\.\d+|_latest)/
                  ).to(:controller => "cookbooks", :action => "show")
+
+      scope.match("/cookbooks/:id/:version", 
+                   :method => 'delete', 
+                   :id => /[\w\.]+/, 
+                   :version => /(\d+\.\d+\.\d+|_latest)/
+                 ).to(:controller => "cookbooks", :action => "destroy")
+
+      scope.match("/cookbooks/:id", 
+                   :method => 'get', 
+                   :id => /[\w\.]+/ 
+                 ).to(:controller => "cookbooks", :action => "show_versions")
 
       scope.match("/cookbooks/:cookbook_id/_content", :method => 'get', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "get_tarball")
       scope.match("/cookbooks/:cookbook_id/_content", :method => 'put', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "update")
