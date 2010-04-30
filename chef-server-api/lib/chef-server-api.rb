@@ -16,6 +16,7 @@ if defined?(Merb::Plugins)
   require 'chef/certificate'
   require 'chef/sandbox'
   require 'chef/checksum'
+  require 'chef/cookbook'
 
   require 'mixlib/authentication'
 
@@ -130,7 +131,9 @@ if defined?(Merb::Plugins)
       # Cookbooks        
       scope.match('/nodes/:id/cookbooks', :method => 'get').to(:controller => "nodes", :action => "cookbooks")
 
-      scope.resources :cookbooks
+      scope.match("/cookbooks", 
+                   :method => 'get' 
+                 ).to(:controller => "cookbooks", :action => "index")
 
       scope.match("/cookbooks/:id/:version", 
                    :method => 'put', 
@@ -141,12 +144,27 @@ if defined?(Merb::Plugins)
       scope.match("/cookbooks/:id/:version", 
                    :method => 'get', 
                    :id => /[\w\.]+/, 
-                   :version => /\d+\.\d+\.\d+/
+                   :version => /(\d+\.\d+\.\d+|_latest)/
                  ).to(:controller => "cookbooks", :action => "show")
 
-      scope.match("/cookbooks/:cookbook_id/_content", :method => 'get', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "get_tarball")
-      scope.match("/cookbooks/:cookbook_id/_content", :method => 'put', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "update")
-      scope.match("/cookbooks/:cookbook_id/:segment", :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "show_segment").name(:cookbook_segment)
+      scope.match("/cookbooks/:id/:version", 
+                   :method => 'delete', 
+                   :id => /[\w\.]+/, 
+                   :version => /(\d+\.\d+\.\d+|_latest)/
+                 ).to(:controller => "cookbooks", :action => "destroy")
+
+      scope.match("/cookbooks/:id", 
+                   :method => 'get', 
+                   :id => /[\w\.]+/ 
+                 ).to(:controller => "cookbooks", :action => "show_versions").name(:cookbook)
+
+      scope.match("/cookbooks/:cookbook_id/:cookbook_version/:segment",
+                   :cookbook_id => /[\w\.]+/,
+                   :cookbook_version => /(\d+\.\d+\.\d+|_latest)/
+                 ).to(
+                    :controller => "cookbooks", 
+                    :action => "show_segment"
+                 ).name(:cookbook_segment)
 
       # Sandbox
       scope.match('/sandboxes', :method => 'get').to(:controller => "sandboxes", :action => "index").name(:sandboxes)

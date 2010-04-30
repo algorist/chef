@@ -24,7 +24,7 @@ class Chef
   class Knife
     class CookbookShow < Knife
 
-      banner "Sub-Command: cookbook show COOKBOOK [PART] [FILENAME] (options)"
+      banner "Sub-Command: cookbook show COOKBOOK [VERSION] [PART] [FILENAME] (options)"
 
       option :fqdn,
        :short => "-f FQDN",
@@ -43,17 +43,21 @@ class Chef
 
       def run 
         case @name_args.length
-        when 3 # We are showing a specific file
-          arguments = { :id => @name_args[2] } 
+        when 4 # We are showing a specific file
+          arguments = { :id => @name_args[3] } 
           arguments[:fqdn] = config[:fqdn] if config.has_key?(:fqdn)
           arguments[:platform] = config[:platform] if config.has_key?(:platform)
           arguments[:version] = config[:platform_version] if config.has_key?(:platform_version)
-          result = rest.get_rest("cookbooks/#{@name_args[0]}/#{@name_args[1]}?#{make_query_params(arguments)}")
+          result = rest.get_rest("cookbooks/#{@name_args[0]}/#{@name_args[1]}/#{@name_args[2]}?#{make_query_params(arguments)}")
           pretty_print(result)
-        when 2 # We are showing a specific part of the cookbook
-          result = rest.get_rest("cookbooks/#{@name_args[0]}")
-          json_pretty_print(result[@name_args[1]])
-        when 1 # We are showing the whole cookbook data
+        when 3 # We are showing a specific part of the cookbook
+          cookbook_version = @name_args[1] == 'latest' ? '_latest' : @name_args[1]
+          result = rest.get_rest("cookbooks/#{@name_args[0]}/#{cookbook_version}")
+          json_pretty_print(result.manifest[@name_args[2]])
+        when 2 # We are showing the whole cookbook data
+          cookbook_version = @name_args[1] == 'latest' ? '_latest' : @name_args[1]
+          json_pretty_print(rest.get_rest("cookbooks/#{@name_args[0]}/#{cookbook_version}"))
+        when 1 # We are showing the cookbook versions 
           json_pretty_print(rest.get_rest("cookbooks/#{@name_args[0]}"))
         end
       end

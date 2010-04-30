@@ -35,7 +35,7 @@ class Chef
     attr_reader :recipe_files, :attribute_files, :couchdb_id
 
     DESIGN_DOCUMENT = {
-      "version" => 1,
+      "version" => 5,
       "language" => "javascript",
       "views" => {
         "all" => {
@@ -56,11 +56,20 @@ class Chef
           }
           EOJS
         },
+        "all_with_version" => {
+          "map" => <<-EOJS
+          function(doc) { 
+            if (doc.chef_type == "cookbook") {
+              emit(doc.cookbook_name, doc.version);
+            }
+          }
+          EOJS
+        },
         "all_latest_version" => {
           "map" => %q@
           function(doc) { 
             if (doc.chef_type == "cookbook") {
-              emit(doc.cookbook_name, [doc.cookbook_name, doc.version]);
+              emit(doc.cookbook_name, doc.version);
             }
           }
           @,
@@ -128,11 +137,12 @@ class Chef
     end
     
     def version
-      @metadata['version']
+      @metadata.version
     end
     
     def version=(new_version)
-      @metadata['version'] = new_version
+      @manifest["version"] = new_version
+      @metadata.version(new_version)
     end
 
     def full_name
@@ -307,9 +317,38 @@ class Chef
         o.delete("_id")
       end
       cookbook.manifest = o
-      cookbook.metadata = o["metadata"]
-      cookbook.version = o["version"]
+      # We want the Chef::Cookbook::Metadata object to always be inflated
+      cookbook.metadata = Chef::Cookbook::Metadata.from_hash(o["metadata"])
       cookbook
+    end
+
+    def display_manifest(&url_generation)
+      self.manifest ? self.manifest : self.generate_manifest
+      [ 'resources', 'providers', 'recipes', 'definitions', 'libraries', 'attributes', 'files', 'templates' ].each do |segment|
+        if manifest.has_key?(segment)
+          manifest[segment].each do |segment_item|
+            puts segment_item.inspect
+            url_options = { :cookbook_id => name.to_s, :segment => segment, :id => segment_item["name"], :cookbook_version => version }
+            set_specificity_arguments(segment_item["specificity"], url_options)
+            segment_item["uri"] = url_generation.call(url_options)
+          end
+        end
+      end
+      manifest
+    end
+
+    def set_specificity_arguments(specificity, url_options={})
+      case specificity
+      when "default"
+      when /^host-(.+)$/
+        url_options[:fqdn] = $1
+      when /^(.+)-(.+)$/
+        url_options[:platform] = $1
+        url_options[:version] = $2
+      when /^(.+)$/
+        url_options[:platform] = $1
+      end
+      url_options
     end
 
     def generate_manifest(&url_generation)
@@ -323,6 +362,7 @@ class Chef
         :resources => Array.new,
         :providers => Array.new
       }
+
       [ :resources, :providers, :recipes, :definitions, :libraries, :attributes, :files, :templates ].each do |segment|
         segment_files(segment).each do |sf|
           next if File.directory?(sf)
@@ -340,19 +380,8 @@ class Chef
             end
             specificity = mo[1]
             file_name = mo[2]
-            url_options = { :cookbook_id => name.to_s, :segment => segment, :id => file_name }
-
-            case specificity
-            when "default"
-            when /^host-(.+)$/
-              url_options[:fqdn] = $1
-            when /^(.+)-(.+)$/
-              url_options[:platform] = $1
-              url_options[:version] = $2
-            when /^(.+)$/
-              url_options[:platform] = $1
-            end
-
+            url_options = { :cookbook_id => name.to_s, :segment => segment, :id => file_name, :cookbook_version => version }
+            set_specificity_arguments(specificity, url_options)
             file_specificity = specificity
           else
             mo = sf.match("cookbooks/#{name}/#{segment}/(.+)")
@@ -374,12 +403,13 @@ class Chef
             :checksum => checksum(sf)
           }
           rs[:specificity] = file_specificity if file_specificity
+
           response[segment] << rs 
         end
       end
       response[:cookbook_name] = name.to_s
       response[:metadata] = metadata 
-      response[:version] = metadata['version']
+      response[:version] = metadata.version
       response[:name] = full_name 
       @manifest = response
     end
@@ -395,15 +425,32 @@ class Chef
       Chef::REST.new(Chef::Config[:chef_server_url])
     end
 
-    # Save this cookbook via the REST API
     def save
       chef_server_rest.put_rest("cookbooks/#{@name}/#{version}", self)
       self
+    end
+    alias :create :save
+
+    def destroy
+      chef_server_rest.delete_rest("cookbooks/#{@name}/#{version}")
+      self
+    end
+
+    def self.load(name, version="_latest")
+      version = "_latest" if version == "latest"
+      Chef::REST.new(Chef::Config[:chef_server_url]).get_rest("cookbooks/#{name}/#{version}")
     end
 
     ##
     # Couchdb
     ##
+    
+    def self.cdb_by_version(cookbook_name=nil, couchdb=nil)
+      cdb = couchdb || Chef::CouchDB.new
+      options = cookbook_name ? { :startkey => cookbook_name, :endkey => cookbook_name } : {}
+      rs = cdb.get_view("cookbooks", "all_with_version", options)
+      rs["rows"].inject({}) { |memo, row| memo.has_key?(row["key"]) ? memo[row["key"]] << row["value"] : memo[row["key"]] = [ row["value"] ]; memo }
+    end
 
     def self.create_design_document(couchdb=nil)
       (couchdb || Chef::CouchDB.new).create_design_document("cookbooks", DESIGN_DOCUMENT)
@@ -416,8 +463,13 @@ class Chef
     end
 
     def self.cdb_load(name, version='latest', couchdb=nil)
-      # Probably want to look for a view here at some point
-      (couchdb || Chef::CouchDB.new).load("cookbook", "#{name}-#{version}")
+      cdb = couchdb || Chef::CouchDB.new
+      if version == "latest" || version == "_latest"
+        rs = cdb.get_view("cookbooks", "all_latest_version", :key => name, :descending => true, :group => true, :reduce => true)["rows"].first
+        cdb.load("cookbook", "#{rs["key"]}-#{rs["value"]}")
+      else
+        cdb.load("cookbook", "#{name}-#{version}")
+      end
     end
 
     def cdb_destroy
