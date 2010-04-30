@@ -14,6 +14,8 @@ if defined?(Merb::Plugins)
   require 'chef/api_client'
   require 'chef/webui_user'
   require 'chef/certificate'
+  require 'chef/sandbox'
+  require 'chef/checksum'
 
   require 'mixlib/authentication'
 
@@ -68,6 +70,8 @@ if defined?(Merb::Plugins)
         Chef::ApiClient.create_design_document
         Chef::WebUIUser.create_design_document
         Chef::Cookbook.create_design_document
+        Chef::Sandbox.create_design_document
+        Chef::Checksum.create_design_document
         
         # Create the signing key and certificate 
         Chef::Certificate.generate_signing_ca
@@ -144,6 +148,14 @@ if defined?(Merb::Plugins)
       scope.match("/cookbooks/:cookbook_id/_content", :method => 'put', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "update")
       scope.match("/cookbooks/:cookbook_id/:segment", :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "show_segment").name(:cookbook_segment)
 
+      # Sandbox
+      scope.match('/sandboxes', :method => 'get').to(:controller => "sandboxes", :action => "index").name(:sandboxes)
+      scope.match('/sandboxes', :method => 'post').to(:controller => "sandboxes", :action => "create")
+      scope.match('/sandboxes/:sandbox_id', :method => 'get', :sandbox_id => /[\w\.]+/).to(:controller => "sandboxes", :action => "show").name(:sandbox)
+      scope.match('/sandboxes/:sandbox_id', :method => 'put', :sandbox_id => /[\w\.]+/).to(:controller => "sandboxes", :action => "update")
+      scope.match('/sandboxes/:sandbox_id/:checksum', :method => 'put', :sandbox_id => /[\w\.]+/, :checksum => /[\w\.]+/).to(:controller => "sandboxes", :action => "upload_checksum").name(:sandbox_checksum)
+      scope.match('/sandboxes/:sandbox_id/:checksum', :method => 'get', :sandbox_id => /[\w\.]+/, :checksum => /[\w\.]+/).to(:controller => "sandboxes", :action => "download_checksum")
+      
       # Data
       scope.match("/data/:data_bag_id/:id", :method => 'get').to(:controller => "data_item", :action => "show").name("data_bag_item")
       scope.match("/data/:data_bag_id", :method => 'post').to(:controller => "data_item", :action => "create").name("create_data_bag_item")
