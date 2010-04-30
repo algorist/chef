@@ -14,6 +14,7 @@ if defined?(Merb::Plugins)
   require 'chef/api_client'
   require 'chef/webui_user'
   require 'chef/certificate'
+  require 'chef/cookbook'
 
   require 'mixlib/authentication'
 
@@ -67,6 +68,7 @@ if defined?(Merb::Plugins)
         Chef::DataBag.create_design_document
         Chef::ApiClient.create_design_document
         Chef::WebUIUser.create_design_document
+        Chef::Cookbook.create_design_document
         
         # Create the signing key and certificate 
         Chef::Certificate.generate_signing_ca
