@@ -127,7 +127,9 @@ if defined?(Merb::Plugins)
       # Cookbooks        
       scope.match('/nodes/:id/cookbooks', :method => 'get').to(:controller => "nodes", :action => "cookbooks")
 
-      scope.resources :cookbooks
+      scope.match("/cookbooks", 
+                   :method => 'get' 
+                 ).to(:controller => "cookbooks", :action => "index")
 
       scope.match("/cookbooks/:id/:version", 
                    :method => 'put', 
@@ -150,11 +152,15 @@ if defined?(Merb::Plugins)
       scope.match("/cookbooks/:id", 
                    :method => 'get', 
                    :id => /[\w\.]+/ 
-                 ).to(:controller => "cookbooks", :action => "show_versions")
+                 ).to(:controller => "cookbooks", :action => "show_versions").name(:cookbook)
 
-      scope.match("/cookbooks/:cookbook_id/_content", :method => 'get', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "get_tarball")
-      scope.match("/cookbooks/:cookbook_id/_content", :method => 'put', :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "update")
-      scope.match("/cookbooks/:cookbook_id/:segment", :cookbook_id => /[\w\.]+/).to(:controller => "cookbooks", :action => "show_segment").name(:cookbook_segment)
+      scope.match("/cookbooks/:cookbook_id/:cookbook_version/:segment",
+                   :cookbook_id => /[\w\.]+/,
+                   :cookbook_version => /(\d+\.\d+\.\d+|_latest)/
+                 ).to(
+                    :controller => "cookbooks", 
+                    :action => "show_segment"
+                 ).name(:cookbook_segment)
 
       # Data
       scope.match("/data/:data_bag_id/:id", :method => 'get').to(:controller => "data_item", :action => "show").name("data_bag_item")
