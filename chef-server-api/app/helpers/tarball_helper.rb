@@ -47,12 +47,8 @@ module Merb
         Chef::Config.checksum_path
       end
       
-      def final_checksum_location(checksum, create_dir_if_missing=false)
-        subdir = File.join(checksum_base, checksum[0..1])
-        if create_dir_if_missing && !File.exists?(subdir)
-          FileUtils.mkdir_p subdir
-        end
-        File.join(subdir, checksum)
+      def checksum_location(checksum)
+        File.join(checksum_base, checksum[0..1], checksum)
       end
       
       def cookbook_base
