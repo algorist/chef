@@ -135,22 +135,22 @@ if defined?(Merb::Plugins)
                    :method => 'get'
                  ).to(:controller => "cookbooks", :action => "index")
 
-      scope.match("/cookbooks/:cookbook_name/:version",
+      scope.match("/cookbooks/:cookbook_name/:cookbook_version",
                    :method => 'put',
                    :cookbook_name => /[\w\.]+/,
-                   :version => /\d+\.\d+\.\d+/
+                   :cookbook_version => /\d+\.\d+\.\d+/
                  ).to(:controller => "cookbooks", :action => "update")
 
-      scope.match("/cookbooks/:cookbook_name/:version",
+      scope.match("/cookbooks/:cookbook_name/:cookbook_version",
                    :method => 'get',
                    :cookbook_name => /[\w\.]+/,
-                   :version => /(\d+\.\d+\.\d+|_latest)/
+                   :cookbook_version => /(\d+\.\d+\.\d+|_latest)/
                  ).to(:controller => "cookbooks", :action => "show")
 
-      scope.match("/cookbooks/:cookbook_name/:version",
+      scope.match("/cookbooks/:cookbook_name/:cookbook_version",
                    :method => 'delete',
                    :cookbook_name => /[\w\.]+/,
-                   :version => /(\d+\.\d+\.\d+|_latest)/
+                   :cookbook_version => /(\d+\.\d+\.\d+|_latest)/
                  ).to(:controller => "cookbooks", :action => "destroy")
 
       scope.match("/cookbooks/:cookbook_name",
