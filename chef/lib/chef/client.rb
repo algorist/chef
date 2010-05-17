@@ -28,7 +28,7 @@ require 'chef/platform'
 require 'chef/node'
 require 'chef/role'
 require 'chef/file_cache'
-require 'chef/compile'
+require 'chef/run_context'
 require 'chef/runner'
 require 'ohai'
 
@@ -38,7 +38,7 @@ class Chef
     include Chef::Mixin::GenerateURL
     include Chef::Mixin::Checksum
     
-    attr_accessor :node, :registration, :json_attribs, :validation_token, :node_name, :ohai, :rest, :runner, :compile
+    attr_accessor :node, :registration, :json_attribs, :validation_token, :node_name, :ohai, :rest, :runner, :run_context
     
     # Creates a new Chef::Client.
     def initialize()
@@ -49,7 +49,7 @@ class Chef
       @node_name = nil
       @node_exists = true
       @runner = nil
-      @compile = nil
+      @run_context = nil
       @ohai = Ohai::System.new
       Chef::Log.verbose = Chef::Config[:verbose_logging]
       Mixlib::Authentication::Log.logger = Ohai::Log.logger = Chef::Log.logger
@@ -73,7 +73,7 @@ class Chef
     # true:: Always returns true.
     def run
       self.runner = nil
-      self.compile = nil
+      self.run_context = nil
       begin
         start_time = Time.now
         Chef::Log.info("Starting Chef Run")
@@ -83,13 +83,22 @@ class Chef
         
         if Chef::Config[:solo]
           build_node
+          self.run_context = Chef::RunContext.new(node, Chef::CookbookCollection.new(Chef::CookbookLoader.new))
           converge
         else
           register
           build_node
           save_node
+          
+          # Note: When we move to lazily loading all cookbook files,
+          # replace sync_cookbooks with a method that simply gets the
+          # cookbook objects (and their download URLs) from the server
+          # and feeds them to the node's lazy-loading cookbook
+          # collection. [cw/tim-5/11/2010]
           sync_cookbooks
+          self.run_context = Chef::RunContext.new(node, Chef::CookbookCollection.new(Chef::CookbookLoader.new))
           save_node
+          
           converge
           save_node
         end
@@ -100,7 +109,7 @@ class Chef
         run_report_handlers(start_time, end_time, elapsed_time) 
         true
       rescue Exception => e
-        run_exception_handlers(node, runner ? runner : compile, start_time, end_time, elapsed_time, e)
+        run_exception_handlers(node, runner ? runner : run_context, start_time, end_time, elapsed_time, e)
         Chef::Log.error("Re-raising exception")
         raise
       end
@@ -301,12 +310,8 @@ class Chef
     # === Returns
     # true:: Always returns true
     def converge
-      Chef::Log.debug("Compiling recipes for node #{node_name}")
-      self.compile = Chef::Compile.new(node)
-      self.compile.go
-      
       Chef::Log.debug("Converging node #{node_name}")
-      self.runner = Chef::Runner.new(node, compile.collection, compile.definitions, compile.cookbook_loader)
+      self.runner = Chef::Runner.new(run_context).converge(node)
       runner.converge
       true
     end
