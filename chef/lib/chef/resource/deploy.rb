@@ -52,8 +52,8 @@ class Chef
       
       provider_base Chef::Provider::Deploy
       
-      def initialize(name, collection=nil, node=nil)
-        super(name, collection, node)
+      def initialize(name, run_context)
+        super
         @resource_name = :deploy
         @deploy_to = name
         @environment = nil
