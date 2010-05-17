@@ -37,5 +37,7 @@ class Chef
     class CannotWritePrivateKey < RuntimeError; end
     class RoleNotFound < RuntimeError; end
     class ValidationFailed < ArgumentError; end
+    class CookbookNotFound < RuntimeError; end
+    class AttributeNotFound < RuntimeError; end
   end
 end
