@@ -71,7 +71,7 @@ class Chef
         obj_id = object_with_metadata["id"]
         AmqpClient.instance.queue_for_object(obj_id) do |queue|
           obj = {:action => :add, :payload => self.with_indexer_metadata(metadata)}
-          queue.publish(Chef::JSON.to_json(obj))
+          queue.publish(Chef::JSON.to_json(obj), :persistent=> true)
         end
       end
 
